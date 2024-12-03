@@ -1,0 +1,13 @@
+	MOV R0, #0AAh
+	CLR A
+	MOV A , R0
+	MOV B , #0AH
+	DIV AB
+	MOV R2,B
+	MOV B , #0AH
+	DIV AB
+	MOV R3, B
+	ADD A, R3
+	ADD A, R2
+	MOV R1 , A
+END 
