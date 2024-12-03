@@ -1,0 +1,146 @@
+#include <MKL25Z4.H>
+#include <stdio.h>
+// starting... find places for pins and anahtars places at handbook!
+
+#define MASK(x) (1UL << (x))
+
+
+//fix the needed things
+// fix them
+#define LIGHT1 (1) //layarlandi isik 1
+#define LIGHT2 (2) //ayarlandi isik 2
+#define LIGHT3 (4) //ayarlandi isik 3
+// isik ve anahtar sayilarini tuttur
+#define LIGHT4 (5) //ayarlandi isik 4
+
+//isiklar iyi
+// change places of anahtars
+#define SWITCH1 (5) // 1. anahtar (about counting)
+#define SWITCH2 (0) // 2. anahtar about counting)
+#define SWITCH3 (2) // 3. anahtar about counting)
+
+// Fonksiyon prototipleri
+void YAPILIS(void); // AYAR CEK
+void DEVAMZ(volatile unsigned int time_del); //ABOUT COUNTING LIKE: 1-2-3-4
+// I NEED 1 MORE FUNCTION ABPUT LIGHT SENCRONIZATION
+//FIND 
+void SUZME(uint8_t COUNT); //ligth the red lights
+//find what is uint8_t
+
+uint8_t NEW(uint8_t COUNT, uint8_t PLACE); //???
+
+
+
+
+void YAPILIS(void) {
+    // start the timerrr
+    SIM->SCGC5 |= SIM_SCGC5_PORTA_MASK | SIM_SCGC5_PORTD_MASK; //do not write it in a line
+
+    // something about GPTO
+    PORTA->PCR[LIGHT1] = PORT_PCR_MUX(1); // ok
+    PORTA->PCR[LIGHT2] = PORT_PCR_MUX(1); // ok2
+	
+    PORTA->PCR[LIGHT3] = PORT_PCR_MUX(1); // ok3
+    PORTA->PCR[LIGHT4] = PORT_PCR_MUX(1); // ok4
+
+    // change
+    PORTD->PCR[SWITCH1] = PORT_PCR_MUX(1) | PORT_PCR_PE_MASK | PORT_PCR_PS_MASK; //do not write in line way
+    PORTD->PCR[SWITCH2] = PORT_PCR_MUX(1) | PORT_PCR_PE_MASK | PORT_PCR_PS_MASK; //do not write in line way
+    PORTD->PCR[SWITCH3] = PORT_PCR_MUX(1) | PORT_PCR_PE_MASK | PORT_PCR_PS_MASK; //do not write in line way
+
+    // cikis
+    PTA->PDDR |= MASK(LIGHT1) | MASK(LIGHT2) | MASK(LIGHT3) | MASK(LIGHT4); //do not write in line way
+
+    // giris
+    PTD->PDDR &= ~(MASK(SWITCH1) | MASK(SWITCH2) | MASK(SWITCH3)); //do not write in line way
+}
+
+// INFINITE LOOP FOR DELAY
+void DEVAMZ(volatile unsigned int time_del) {
+    while (time_del--) {
+       
+			
+    }
+}
+
+// Fix the counter
+uint8_t NEW(uint8_t COUNT, uint8_t PLACE) {
+    if (PLACE) {
+        COUNT = (COUNT + 1) & 0x0F; // increase the count
+			//when 15-> 0 then do not light any LEDs
+    } else {
+        COUNT = (COUNT - 1) & 0x0F; // decrease the counting
+			//when 0-> then 16 4 lighting LEDS
+    }
+    return COUNT; 
+}
+
+// looks at LED's if they are going to be lighted or not
+void SUZME(uint8_t COUNT) {
+    if (COUNT & 0x01) {
+        PTA->PSOR = MASK(LIGHT1); //if the counting is about this code, light the significant LED
+    } else {
+        PTA->PCOR = MASK(LIGHT1); //do not light the LEDS
+    }
+
+    if (COUNT & 0x02) {
+        PTA->PSOR = MASK(LIGHT2); //if the counting is about this code, light the significant LED
+    } else {
+        PTA->PCOR = MASK(LIGHT2); //do not light the LEDS
+    }
+
+    if (COUNT & 0x04) {
+        PTA->PSOR = MASK(LIGHT3); //if the counting is about this code, light the significant LED
+    } else {
+        PTA->PCOR = MASK(LIGHT3); //do not light the LEDS
+    }
+
+    if (COUNT & 0x08) {
+        PTA->PSOR = MASK(LIGHT4); //if the counting is about this code, light the significant LED
+    } else {
+        PTA->PCOR = MASK(LIGHT4); //do not light the LEDS
+    }
+}
+
+// MAIN FUNCTION
+int main() {
+    uint8_t COUNT = 0; // count from 0000
+    uint8_t PLACE = 1; // counting way, if it is 1 then 1,2,3,4... if it is 0 then 5,4,3,2,1,...
+
+    YAPILIS(); // it i sabout the ports
+
+    while (1) {
+        // look and know the switchws
+        PLACE = (PTD->PDIR & MASK(SWITCH1)) ? 1 : 0; 
+
+        // look at switch
+        if (!((PTD->PDIR & MASK(SWITCH2)) == 0 && (PTD->PDIR & MASK(SWITCH3)) == 0)) {
+            //control time
+            COUNT = NEW(COUNT, PLACE);
+        }
+
+        // it will adjust leds saymaya göre
+        SUZME(COUNT);
+
+        // adjust waiting time
+        unsigned int delayTime = 200399; // min delay for switches
+        if (PTD->PDIR & MASK(SWITCH2)) {
+            
+            if (PTD->PDIR & MASK(SWITCH3)) {
+                delayTime = 475713;  // whe both are closed it will be ok/activated
+            } else {
+                delayTime = 950789;  // 1 closed and 1 openden when activated
+            }
+						  } else {
+            // only 1 of them is open (its 2)
+            if (PTD->PDIR & MASK(SWITCH3)) {
+                delayTime = 1907347; // when 2 is open adn 3 is closed it will be activated
+            } else {
+                delayTime = 200261; //2 and 3 are also activated for LED replacement.
+            }
+        }
+
+        // led cahnge
+        DEVAMZ(delayTime);
+    }
+}
