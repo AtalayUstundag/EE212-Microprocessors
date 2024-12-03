@@ -1,0 +1,342 @@
+ORG 0H  
+        acall	CONFIGURE_LCD 
+
+
+ANA_KISIM:
+        acall KEYBOARD ; ilk sayıyı çekiyorum ve r2 ye atıyorum
+        MOV R2,A ; artık ilk sayı r2 de
+        acall SEND_DATA ; A daki sayıyı gösterdim
+        acall KEYBOARD ; bir input daha cektim
+        CJNE A,#'#', ilerle ; diyez işaretiyle karşılaştır
+        acall birinci_is
+        mov a,#01H	;CLEAR DISPLAY SCREEN
+	acall SEND_COMMAND
+	mov a,r2
+	mov b,#2
+	mul ab
+	
+	burası:
+	mov r3,a
+	mov a,#01H	;CLEAR DISPLAY SCREEN
+	acall SEND_COMMAND
+	
+	mov a,r3
+	mov b,#2
+	DIV ab
+	mov r4,b
+	mov b,#30h
+	add a,b
+        lcall send_data
+	lcall islem_bolum
+        
+        lcall gelirgecer
+        mov a,r3
+        djnz a,burası
+        ljmp fırlatbeybi
+ ilerle: MOV R7,A
+        acall SEND_DATA
+        acall KEYBOARD
+        CJNE A,#'#',ilerle1
+        
+        mov a,#01H	;CLEAR DISPLAY SCREEN
+	acall SEND_COMMAND
+	ljmp gel
+
+        
+ ilerle1: mov r2,#0
+        mov r7,#0
+        ljmp bitis
+
+
+CONFIGURE_LCD:	
+	mov a,#38H	
+	acall SEND_COMMAND
+	mov a,#0FH	
+	acall SEND_COMMAND
+	mov a,#06H	
+	acall SEND_COMMAND
+	mov a,#01H	
+	acall SEND_COMMAND
+	mov a,#80H	
+	acall SEND_COMMAND
+	ret
+
+
+SEND_DATA: ;kullanıcının LCD de görmesi için
+	mov p1,a		
+	setb p3.5	
+	clr p3.6		
+	setb p3.7	
+	acall DELAY
+	clr p3.7
+	ret
+
+SJMP BİR
+
+BİR:
+
+
+SEND_COMMAND: ;kullanıcının lcd den data girebilmesi için
+	mov p1,a		
+	clr p3.5		
+	clr p3.6		
+	setb p3.7	
+	acall DELAY
+	clr p3.7
+	ret
+
+SJMP İKİ
+İKİ:
+      
+
+
+	DELAY:         ; Gecikme eklemem gerektiği için yaptım 
+	push 0
+	push 1
+	mov r0,#50
+        DELAY_OUTER_LOOP:
+	mov r1,#255
+	djnz r1,$
+	djnz r0,DELAY_OUTER_LOOP
+	pop 1
+	pop 0
+	ret
+
+	KEYBOARD: ; kullanıcının yazdıklarını çekebilmek için alt rutin
+	mov	P0, #0ffh	
+K1:
+	mov	P2, #0	
+	mov	A, P0
+	anl	A, #00001111B
+	cjne	A, #00001111B, K1
+K2:
+	acall	DELAY
+	mov	A, P0
+	anl	A, #00001111B
+	cjne	A, #00001111B, KB_OVER
+	sjmp	K2
+KB_OVER:
+	acall	DELAY
+	mov	A, P0
+	anl	A, #00001111B
+	cjne	A, #00001111B, KB_OVER1
+	sjmp	K2
+KB_OVER1:
+	mov	P2, #11111110B
+	mov	A, P0
+	anl	A, #00001111B
+	cjne	A, #00001111B, ROW_0
+	mov	P2, #11111101B
+	mov	A, P0
+	anl	A, #00001111B
+	cjne	A, #00001111B, ROW_1
+	mov	P2, #11111011B
+	mov	A, P0
+	anl	A, #00001111B
+	cjne	A, #00001111B, ROW_2
+	mov	P2, #11110111B
+	mov	A, P0
+	anl	A, #00001111B
+	cjne	A, #00001111B, ROW_3
+	ljmp	K2
+	
+ROW_0:
+	mov	DPTR, #KCODE0
+	sjmp	KB_FIND
+ROW_1:
+	mov	DPTR, #KCODE1
+	sjmp	KB_FIND
+ROW_2:
+	mov	DPTR, #KCODE2
+	sjmp	KB_FIND
+ROW_3:
+	mov	DPTR, #KCODE3
+KB_FIND:
+	rrc	A
+	jnc	KB_MATCH
+	inc	DPTR
+	sjmp	KB_FIND
+KB_MATCH:
+	clr	A
+	movc	A, @A+DPTR 
+	ret
+
+;keyboard table
+KCODE0:	DB	'1', '2', '3', 'A'
+KCODE1:	DB	'4', '5', '6', 'B'
+KCODE2:	DB	'7', '8', '9', 'C'
+KCODE3:	DB	'*', '0', '#', 'D'
+
+birinci_is: 
+mov a,r2 ; A ASCII SAYISI 
+subb a,#'0' ; 0 ÇIKINCA HANGİ SAYI OLDUĞU BULUNDU
+mov r2,a; A YI R2 DE DEPOLA 
+
+ret
+
+SJMP ÜC
+ÜC:
+
+gelirgecer:
+mov a,r2
+mov r7,a
+mov tmod,#00000001b
+mov a,#8
+clr tr0
+dec:
+clr tf0
+mov th0,#0AAh
+mov tl0,#056h
+setb tr0
+KALBURADA: JNB tf0, KALBURADA
+clr tf0
+djnz a,dec
+ret
+
+; DENEMELERİM İÇİN YAPTIM
+gecmedi:
+clr a
+mov TMOD,#11H
+
+	
+twister:mov r6,#10d
+
+setb TR0
+mov th0,3cH
+mov tl0,0b0H
+jnb tf0,$
+clr tf0
+djnz r6,twister
+sjmp DATA_LOOP
+djnz r7,gecmedi
+
+
+
+DATA_LOOP:
+        mov a,#01H	; EKRANI TEMİZLİYORUM SONRA YENİSİ GELECEK
+	acall SEND_COMMAND  
+	clr a	
+	jz twister		
+	movc a,@a+dptr
+	acall SEND_DATA
+	clr a
+	inc dptr
+	sjmp DATA_LOOP
+
+
+SAYILAR: DB '15','14','13','12','11','10'
+SAYILAR2: DB '9','8','7','6','5','4','3','2','1','0'
+
+INPUTSTR1: DB 'LAUNCH'
+
+
+
+fırlatbeybi:
+mov a,#01H	; EKRANI TEMİZLİYORUM SONRA YENİSİ GELECEK
+acall SEND_COMMAND ; BURASI LAUNCH YAZDIRMAK İÇİN KULLANILDI
+mov a,#'l' ; L GÖNDER
+lcall send_data
+mov a,#'a'; A GÖNDER
+lcall send_data
+mov a,#'u'; U GÖNDER
+lcall send_data
+mov a,#'n'; N GÖNDER
+lcall send_data
+mov a,#'c'; C GÖNDER
+lcall send_data
+mov a,#'h'; H GÖNDER
+lcall send_data
+bitartık:sjmp bitartık
+
+
+
+
+islem_bolum:
+mov a,r4
+cjne a,#1, topsoy
+topsoy:jnc topsoythesecond
+mov a,#' '
+lcall send_data ; bosluk yazdırmak için
+mov a,#'s'
+lcall send_data ; s yazdırmak için
+mov a,#'e'
+lcall send_data ; e yazdırmak için
+mov a,#'c'
+lcall send_data ; c yazdırmak için
+ret
+topsoythesecond:
+mov a,#'.'
+lcall send_data ; . yazdırmak için
+mov a,#'5'
+lcall send_data ; 5 yazdırmak için
+mov a,#' '
+lcall send_data ; bosluk yazdırmak için
+mov a,#'s'
+lcall send_data ; s yazdırmak için
+mov a,#'e'
+lcall send_data ; e yazdırmak için
+mov a,#'c'
+lcall send_data ; c yazdırmak için
+ret
+gel:
+mov a,r2 ; a yı r2 deki değerle çarpmak için
+mov b,#30h ; b değiştiği için tekrar değer attım
+subb a,b ; a dan b yi çıkart b değişmedi 
+mov r5,a
+mov b,#30h ; B YE TAKRAR 30 U ATTIM
+mov a,r7 
+subb a,b
+mov r6,a
+mov b,#10 ; B DEĞİTİĞİ İÇİN 10 GÖNDERDİM
+mov a,r5
+mul ab
+mov a,r6
+mov b,#2 ; 2 YE BÖLMEM LAZIM
+mul ab  ; BÖLDÜM 
+mov r6,a ; BÖLÜMÜ A DAKİNİ R6 YA GÖNDERDİM
+gelgelgel:
+mov r6,a
+	mov a,#01H	; EKRANI TEMİZLİYORUM SONRA YENİSİ GELECEK
+	acall SEND_COMMAND
+	mov a,#'1'
+	lcall send_data
+	mov a,r6
+	mov b,#2
+	DIV ab
+	mov r4,b
+	mov b,#30h
+	add a,b
+        lcall send_data
+	lcall islem_bolum
+        lcall gelirgecer
+        
+        mov a,r6
+        
+        djnz a,gelgelgel
+
+        lcall gelirgecer
+        mov a,#01H	; EKRANI TEMİZLİYORUM SONRA YENİSİ GELECEK
+	acall SEND_COMMAND ; EKRANA GÖNDERİYORUM
+	
+        mov a,#'1'
+        lcall send_data ; EKRANA 1 ATTIM
+        mov a,#'0'
+        lcall send_data ; EKRANA 0 ATTIM
+        mov a,#' '
+lcall send_data ; EKRANA BOSLUK ATTIM
+mov a,#'s'
+lcall send_data ; EKRANA S ATTIM
+mov a,#'e'
+lcall send_data ; EKRANA E ATTIM
+mov a,#'c'
+lcall send_data ; EKRANA C ATTIM
+        lcall gelirgecer
+        mov a,#19d
+        ljmp burası
+
+
+
+lcall gelirgecer
+ljmp fırlatbeybi
+bitis:
+end
